@@ -44,4 +44,10 @@ class Tabuleiro {
         p.setPosicao(linha, coluna);
         casas[linha][coluna] = p;
     }
+    
+    void limpar() {
+        for (int l = 0; l < 8; l++)
+            for (int c = 0; c < 8; c++)
+                casas[l][c] = null;
+    }
 }

@@ -30,6 +30,20 @@ public class JogoXadrez {
         boolean podeMover = pecaSelecionada.podeMoverPara(tabuleiro, linha, coluna);
         if (podeMover) {
             tabuleiro.moverPeca(pecaSelecionada, linha, coluna);
+            
+         // Verifica promoção
+            if (pecaSelecionada instanceof Peao) {
+                boolean chegouNoFim =
+                    (pecaSelecionada.getCor() == Cor.BRANCO && linha == 0) ||
+                    (pecaSelecionada.getCor() == Cor.PRETO && linha == 7);
+
+                if (chegouNoFim) {
+                    // ✅ substitui diretamente por rainha
+                    Peca novaRainha = new Rainha(pecaSelecionada.getCor(), linha, coluna);
+                    tabuleiro.moverPeca(novaRainha, linha, coluna);
+                }
+            }
+            
             alternarJogador();
         }
         pecaSelecionada = null;

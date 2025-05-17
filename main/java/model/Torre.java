@@ -8,6 +8,9 @@ class Torre extends Peca {
 
     @Override
     boolean podeMoverPara(Tabuleiro tabuleiro, int l, int c) {
+    	if (l < 0 || l > 7 || c < 0 || c > 7) return false; //verificacao limites tabuleiro
+
+    	
         if (linha != l && coluna != c) return false;
 
         int deltaL = Integer.compare(l, linha);
