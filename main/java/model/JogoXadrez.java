@@ -38,7 +38,7 @@ public class JogoXadrez {
                     (pecaSelecionada.getCor() == Cor.PRETO && linha == 7);
 
                 if (chegouNoFim) {
-                    // ✅ substitui diretamente por rainha
+                    // substitui diretamente por rainha
                     Peca novaRainha = new Rainha(pecaSelecionada.getCor(), linha, coluna);
                     tabuleiro.moverPeca(novaRainha, linha, coluna);
                 }
