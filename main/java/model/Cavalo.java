@@ -8,7 +8,7 @@ class Cavalo extends Peca {
 
     @Override
     boolean podeMoverPara(Tabuleiro tabuleiro, int l, int c) {
-    	if (l < 0 || l > 7 || c < 0 || c > 7) return false; //verificacao limites tabuleiro
+    	if (l < 0 || l > 7 || c < 0 || c > 7) return false; 
 
         int dx = Math.abs(linha - l);
         int dy = Math.abs(coluna - c);
