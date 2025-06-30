@@ -1,0 +1,241 @@
+// botar isso em controlador jogo, apagar a antiga salvar jogo
+
+
+public void salvarPartida() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Salvar Partida");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+            "Arquivos de texto", "txt"));
+        
+        int resultado = fileChooser.showSaveDialog(janelaPrincipal);
+        if (resultado == JFileChooser.APPROVE_OPTION) {
+            File arquivo = fileChooser.getSelectedFile();
+            if (!arquivo.getName().endsWith(".txt")) {
+                arquivo = new File(arquivo.getAbsolutePath() + ".txt");
+            }
+            
+            try {
+                // Obter PGN do histórico (apenas os movimentos)
+                String pgn = getHistoricoPGN();
+                
+                String conteudo;
+                if (pgn != null && !pgn.trim().isEmpty()) {
+                    conteudo = pgn.trim();
+                } else {
+                    conteudo = "Partida sem movimentos registrados";
+                }
+                
+                // Salvar arquivo
+                try (java.io.FileWriter writer = new java.io.FileWriter(arquivo)) {
+                    writer.write(conteudo);
+                    writer.flush();
+                }
+                
+                // Mostrar sucesso
+                JOptionPane.showMessageDialog(janelaPrincipal,
+                    "Partida salva com sucesso em:\n" + arquivo.getAbsolutePath(),
+                    "Salvamento Concluído",
+                    JOptionPane.INFORMATION_MESSAGE);
+                    
+                System.out.println("[DEBUG ControladorJogo] Partida salva em: " + arquivo.getAbsolutePath());
+                
+            } catch (java.io.IOException e) {
+                // Mostrar erro
+                JOptionPane.showMessageDialog(janelaPrincipal,
+                    "Erro ao salvar a partida:\n" + e.getMessage(),
+                    "Erro no Salvamento",
+                    JOptionPane.ERROR_MESSAGE);
+                    
+                System.err.println("[ERRO ControladorJogo] Erro ao salvar partida: " + e.getMessage());
+                e.printStackTrace();
+                
+            } catch (Exception e) {
+                // Erro geral
+                JOptionPane.showMessageDialog(janelaPrincipal,
+                    "Erro inesperado ao salvar a partida:\n" + e.getMessage(),
+                    "Erro no Salvamento",
+                    JOptionPane.ERROR_MESSAGE);
+                    
+                System.err.println("[ERRO ControladorJogo] Erro inesperado: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    public boolean aplicarMovimentosPGN(String pgn) {
+        try {
+            System.out.println("[DEBUG ControladorJogo] Aplicando PGN: " + pgn);
+            
+            // Limpar pontuação extra e dividir em tokens
+            String pgnLimpo = pgn.replaceAll("[\\*]", "").trim();
+            String[] tokens = pgnLimpo.split("\\s+");
+            
+            int movimentosAplicados = 0;
+            
+            for (String token : tokens) {
+                token = token.trim();
+                
+                // Pular números de jogada (1., 2., etc.)
+                if (token.matches("\\d+\\.")) {
+                    continue;
+                }
+                
+                // Pular tokens vazios
+                if (token.isEmpty()) {
+                    continue;
+                }
+                
+                // Tentar aplicar o movimento
+                boolean sucesso = aplicarMovimentoAlgebrico(token);
+                
+                if (sucesso) {
+                    movimentosAplicados++;
+                    System.out.println("[DEBUG ControladorJogo] Movimento aplicado: " + token);
+                    
+                    // Pequena pausa para permitir atualização da interface
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    System.err.println("[ERRO ControladorJogo] Falha ao aplicar movimento: " + token);
+                    // Continuar tentando outros movimentos
+                }
+            }
+            
+            System.out.println("[DEBUG ControladorJogo] Total de movimentos aplicados: " + movimentosAplicados);
+            return movimentosAplicados > 0;
+            
+        } catch (Exception e) {
+            System.err.println("[ERRO ControladorJogo] Erro ao aplicar movimentos PGN: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean aplicarMovimentoAlgebrico(String movimento) {
+        try {
+            // Remover caracteres de xeque/xeque-mate
+            String movLimpo = movimento.replaceAll("[\\+\\#]", "");
+            
+            // Casos especiais: Roque
+            if (movLimpo.equals("O-O") || movLimpo.equals("0-0")) {
+                return tentarRoque(true); // Roque pequeno
+            }
+            if (movLimpo.equals("O-O-O") || movLimpo.equals("0-0-0")) {
+                return tentarRoque(false); // Roque grande
+            }
+            
+            // Para outros movimentos, tentar força bruta (encontrar movimento válido)
+            return tentarMovimentoPorForcaBruta(movLimpo);
+            
+        } catch (Exception e) {
+            System.err.println("[ERRO ControladorJogo] Erro ao processar movimento '" + movimento + "': " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean tentarRoque(boolean roquePequeno) {
+        try {
+            if (jogoXadrez == null) return false;
+            
+            // Encontrar rei da cor atual
+            Cor jogadorAtual = jogoXadrez.getJogadorAtual();
+            int linhaRei = (jogadorAtual == Cor.BRANCO) ? 7 : 0;
+            int colunaRei = 4; // Rei sempre começa na coluna 4
+            
+            // Tentar roque
+            int colunaDestino = roquePequeno ? 6 : 2;
+            
+            return jogoXadrez.moverPeca(linhaRei, colunaRei, linhaRei, colunaDestino);
+            
+        } catch (Exception e) {
+            System.err.println("[ERRO ControladorJogo] Erro ao tentar roque: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean tentarMovimentoPorForcaBruta(String movimento) {
+        try {
+            if (jogoXadrez == null) return false;
+            
+            Tabuleiro tabuleiro = jogoXadrez.getTabuleiro();
+            Cor jogadorAtual = jogoXadrez.getJogadorAtual();
+            
+            // Tentar todos os movimentos possíveis até encontrar um que gere a notação desejada
+            for (int linhaOrigem = 0; linhaOrigem < 8; linhaOrigem++) {
+                for (int colunaOrigem = 0; colunaOrigem < 8; colunaOrigem++) {
+                    Peca pecaOrigem = tabuleiro.getPeca(linhaOrigem, colunaOrigem);
+                    
+                    if (pecaOrigem == null || pecaOrigem.getCor() != jogadorAtual) {
+                        continue;
+                    }
+                    
+                    // Tentar mover para todas as casas possíveis
+                    for (int linhaDestino = 0; linhaDestino < 8; linhaDestino++) {
+                        for (int colunaDestino = 0; colunaDestino < 8; colunaDestino++) {
+                            
+                            // Verificar se é um movimento válido
+                            if (jogoXadrez.movimentoValido(linhaOrigem, colunaOrigem, linhaDestino, colunaDestino)) {
+                                
+                                // Gerar notação para este movimento
+                                String notacaoGerada = gerarNotacaoSimples(pecaOrigem, linhaOrigem, colunaOrigem, linhaDestino, colunaDestino, tabuleiro);
+                                
+                                // Verificar se é o movimento que procuramos
+                                if (movimento.equals(notacaoGerada) || movimento.startsWith(notacaoGerada)) {
+                                    // Executar o movimento
+                                    boolean sucesso = jogoXadrez.moverPeca(linhaOrigem, colunaOrigem, linhaDestino, colunaDestino);
+                                    if (sucesso) {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return false;
+            
+        } catch (Exception e) {
+            System.err.println("[ERRO ControladorJogo] Erro na força bruta: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String gerarNotacaoSimples(Peca peca, int linhaOrigem, int colunaOrigem, 
+                                      int linhaDestino, int colunaDestino, Tabuleiro tabuleiro) {
+        try {
+            StringBuilder notacao = new StringBuilder();
+            
+            // Tipo da peça
+            if (peca instanceof Rei) notacao.append("R");
+            else if (peca instanceof Rainha) notacao.append("D");
+            else if (peca instanceof Torre) notacao.append("T");
+            else if (peca instanceof Bispo) notacao.append("B");
+            else if (peca instanceof Cavalo) notacao.append("C");
+            // Peão não tem prefixo
+            
+            // Captura
+            Peca pecaCapturada = tabuleiro.getPeca(linhaDestino, colunaDestino);
+            if (pecaCapturada != null) {
+                if (peca instanceof Peao) {
+                    // Para peão, incluir coluna de origem
+                    char colunaChar = (char) ('a' + colunaOrigem);
+                    notacao.append(colunaChar);
+                }
+                notacao.append("x");
+            }
+            
+            // Casa de destino
+            char colunaDestChar = (char) ('a' + colunaDestino);
+            int linhaDestNum = 8 - linhaDestino;
+            notacao.append(colunaDestChar).append(linhaDestNum);
+            
+            return notacao.toString();
+            
+        } catch (Exception e) {
+            return "";
+        }
+    }
